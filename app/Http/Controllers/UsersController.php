@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\User;
 
 class UsersController extends Controller
 {
@@ -34,7 +35,18 @@ class UsersController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        try {
+            $new_user = new User;
+            $new_user->name = $request->name;
+            $new_user->email = $request->email;
+            $new_user->password = bcrypt($request->password);
+            $new_user->save();
+
+            return "user created";
+        } catch (Exception $e) {
+        
+            return $e;
+        }
     }
 
     /**
