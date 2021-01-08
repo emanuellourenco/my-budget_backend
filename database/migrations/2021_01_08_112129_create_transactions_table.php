@@ -18,7 +18,7 @@ class CreateTransactionsTable extends Migration
             $table->string('description');
             $table->dateTime('date', 0);
             $table->float('value', 8, 2);
-
+            $table->unsignedBigInteger('user_id');
             $table->foreign('user_id')->references('id')->on('users');
             $table->timestamps();
         });

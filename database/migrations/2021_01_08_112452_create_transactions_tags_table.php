@@ -15,6 +15,8 @@ class CreateTransactionsTagsTable extends Migration
     {
         Schema::create('transactions_tags', function (Blueprint $table) {
             $table->id();
+            $table->unsignedBigInteger('tag_id');
+            $table->unsignedBigInteger('transaction_id');
             $table->foreign('tag_id')->references('id')->on('tags');
             $table->foreign('transaction_id')->references('id')->on('transactions');
             $table->timestamps();
