@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Transaction;
+use App\Models\Transaction_Tag;
 
 class TransactionsController extends Controller
 {
@@ -11,9 +13,12 @@ class TransactionsController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
-        //
+        $transactions = Transaction::where("user_id", $request->user_id)->get();
+        $transaction_tags = Transaction_Tag::where("user_id", $request->user_id)->get();
+        
+        return ["transactions" => $transactions, "transaction_tags" => $transaction_tags];
     }
 
     /**
@@ -34,7 +39,27 @@ class TransactionsController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        try {
+            $new_transaction = new Transaction;
+            $new_transaction->description = $request->description;
+            $new_transaction->value = $request->value;
+            $new_transaction->date = $request->date;
+            $new_transaction->user_id = $request->user_id;
+            $new_transaction->save();
+
+            $request->tags->each(function ($item, $key) {
+                $new_transition_tag = new Transition_Tag;
+                $new_transition_tag->transition_id = $new_transaction->id;
+                $new_transition_tag->tag_id = $item;
+                $new_transition_tag->save();
+            });
+
+            return "transition created";
+
+        } catch(Exception $e){
+            return ($e);
+        }
+
     }
 
     /**

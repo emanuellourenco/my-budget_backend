@@ -12,9 +12,9 @@ class TagsController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
-        $tags = Tag::get();
+        $tags = Tag::where("user_id", $request->user_id)->get();
 
         return ["tags" => $tags];
     }
