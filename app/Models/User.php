@@ -40,4 +40,8 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
     ];
+
+    function getUserByToken($token){
+        return User::where("remember_token", $token)->first();
+    }
 }
