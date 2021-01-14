@@ -9,18 +9,36 @@ use App\Models\User;
 class TagsController extends Controller
 {
     /**
-     * Display a listing of the resource.
-     *
+     * Function to list tags and return an array with tags list and tags count.
+     * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
     public function index(Request $request)
     {
         $user = new User;
         $user_by_token = $user->getUserByToken($request->token);
+        $offset = !!$request->offset ? $request->offset : 0;
+        $limit = 100;
+        if(!!$request->limit && $request->limit < 100){
+            $limit = $request->limit;
+        }
+        $order_by = !!$request->orderBy ? $request->orderBy : "name";
+        $sort_by = !!$request->sortBy ? $request->sortBy : "asc";
 
-        $tags = !!$user_by_token ? Tag::where("user_id", $user_by_token->id)->select("name", "color", "id as key", "rule")->get() : [];
+        $tags = !!$user_by_token ? 
+                    Tag::where("user_id", $user_by_token->id)
+                        ->select("name", "color", "id as key", "rule")
+                        ->orderBy($order_by, $sort_by)
+                        ->skip($offset)
+                        ->take($limit)
+                        ->get() 
+                : 
+                    [];
 
-        return ["tags" => $tags];
+        $total_count = !!$user_by_token ? 
+                    Tag::where("user_id", $user_by_token->id)->count() : 0;            
+
+        return ["tags" => $tags, "total_count" => $total_count];
     }
 
     /**
@@ -42,21 +60,59 @@ class TagsController extends Controller
     public function store(Request $request)
     {        
         try {
-            $user = new User;
-            $user_by_token = $user->getUserByToken($request->token);
+            $data_error = [];
+            $error = false;
+            $name = $request->name;
+            $color = $request->color;
+            $rule = $request->rule;
 
-            if($user_by_token){
-                $new_tag = new Tag;
-                $new_tag->name = $request->name;
-                $new_tag->color = $request->color;
-                $new_tag->rule = $request->rule;
-                $new_tag->user_id = $user_by_token->id;
-                $new_tag->save();
-    
-                $tags = Tag::where("user_id", $user_by_token->id)->select("name", "color", "id as key", "rule")->get();
-    
-                return ["status"=> "success", "tags" => $tags];
+            if(!$name){ 
+                array_push($data_error, ["field"=> "name", "label" => "This field is required"]);
             }
+            if(!$color){ 
+                array_push($data_error, ["field"=> "color", "label" => "This field is required"]);
+            }
+            if(!$rule){ 
+                array_push($data_error, ["field"=> "rule", "label" => "This field is required"]);
+            }
+            if(!$name || !$color || !$rule){ 
+                $error = true;
+            };
+
+            if(!$error){
+                $user = new User;
+                $user_by_token = $user->getUserByToken($request->token);
+                $offset = !!$request->offset ? $request->offset : 0;
+                $limit = 100;
+                if(!!$request->limit && $request->limit < 100){
+                    $limit = $request->limit;
+                }
+                $order_by = !!$request->orderBy ? $request->orderBy : "name";
+                $sort_by = !!$request->sortBy ? $request->sortBy : "asc";
+
+                if($user_by_token){
+                    $new_tag = new Tag;
+                    $new_tag->name = $request->name;
+                    $new_tag->color = $request->color;
+                    $new_tag->rule = $request->rule;
+                    $new_tag->user_id = $user_by_token->id;
+                    $new_tag->save();
+        
+                    $tags = Tag::where("user_id", $user_by_token->id)
+                                ->select("name", "color", "id as key", "rule")
+                                ->orderBy($order_by, $sort_by)
+                                ->skip($offset)
+                                ->take($limit)
+                                ->get();
+
+                    $total_count = Tag::where("user_id", $user_by_token->id)->count(); 
+                    
+                    return ["status"=> "success", "tags" => $tags, "total_count" => $total_count];
+                }
+            } else {
+                return ["status"=> "error", "data_error" => $data_error];
+            }
+
 
         } catch (Exception $e) {
     
@@ -114,6 +170,13 @@ class TagsController extends Controller
         try {
             $user = new User;
             $user_by_token = $user->getUserByToken($request->token);
+            $offset = !!$request->offset ? $request->offset : 0;
+            $limit = 100;
+            if(!!$request->limit && $request->limit < 100){
+                $limit = $request->limit;
+            }
+            $order_by = !!$request->orderBy ? $request->orderBy : "name";
+            $sort_by = !!$request->sortBy ? $request->sortBy : "asc";
 
             if($user_by_token){
                 $update_tag = Tag::where("user_id", $user_by_token->id)->where("id",$id)->first();
@@ -124,10 +187,16 @@ class TagsController extends Controller
                     $update_tag->rule = $request->rule;
                     $update_tag->save();
 
-                    $tags = Tag::where("user_id", $user_by_token->id)->select("name", "color", "id as key", "rule")->get();
+                    $tags = Tag::where("user_id", $user_by_token->id)
+                                ->select("name", "color", "id as key", "rule")
+                                ->orderBy($order_by, $sort_by)
+                                ->skip($offset)
+                                ->take($limit)
+                                ->get();
 
-                    return ["status"=> "success", "tags" => $tags];
+                    $total_count = Tag::where("user_id", $user_by_token->id)->count(); 
 
+                    return ["status"=> "success", "tags" => $tags, "total_count" => $total_count];
                 } else {
                     return "tag not found";
                 }
@@ -143,20 +212,42 @@ class TagsController extends Controller
      * Remove the specified resource from storage.
      *
      * @param  int  $id
+     * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function destroy($id)
+    public function destroy($id,Request $request)
     {
         try {
-            $delete_tag = Tag::findOrFail($id);
+            $user = new User;
+            $user_by_token = $user->getUserByToken($request->token);
+            $offset = !!$request->offset ? $request->offset : 0;
+            $limit = 100;
+            if(!!$request->limit && $request->limit < 100){
+                $limit = $request->limit;
+            }
+            $order_by = !!$request->orderBy ? $request->orderBy : "name";
+            $sort_by = !!$request->sortBy ? $request->sortBy : "asc";
 
-            if($delete_tag){
-                $delete_tag->delete();
+            if($user_by_token){
+                
+                $delete_tag = Tag::where("user_id", $user_by_token->id)->where("id", $id)->first();
 
-                return "tag deleted";
+                if($delete_tag){
+                    $delete_tag->delete();
 
-            } else {
-                return "tag not found";
+                    $tags = Tag::where("user_id", $user_by_token->id)
+                                    ->select("name", "color", "id as key", "rule")
+                                    ->orderBy($order_by, $sort_by)
+                                    ->skip($offset)
+                                    ->take($limit)
+                                    ->get();
+
+                    $total_count = Tag::where("user_id", $user_by_token->id)->count(); 
+
+                    return ["status"=> "success", "tags" => $tags, "total_count" => $total_count];
+                } else {
+                    return "tag not found";
+                }
             }
 
         } catch (Exception $e) {
