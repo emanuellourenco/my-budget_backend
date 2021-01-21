@@ -10,7 +10,7 @@ class TagsController extends Controller
 {
     /**
      * Function to list tags and return an array with tags list and tags count.
-     * 
+     *
      * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
@@ -50,11 +50,39 @@ class TagsController extends Controller
     /**
      * Show the form for creating a new resource.
      *
+     * @param  \Illuminate\Http\Request  $request
      * @return \Illuminate\Http\Response
      */
-    public function create()
+    public function options(Request $request)
     {
-        //
+        $user = new User();
+        $user_by_token = $user->getUserByToken($request->token);
+
+        if ($user_by_token) {
+            $offset = !!$request->offset ? $request->offset : 0;
+            $limit = 100;
+            if (!!$request->limit && $request->limit < 100) {
+                $limit = $request->limit;
+            }
+            $order_by = !!$request->orderBy ? $request->orderBy : 'name';
+
+            $tags = Tag::where('user_id', $user_by_token->id)
+                ->select('name as label', 'id as value')
+                ->orderBy($order_by, 'asc')
+                ->skip($offset)
+                ->take($limit)
+                ->get();
+
+            $total_count = Tag::where('user_id', $user_by_token->id)->count();
+
+            return [
+                'status' => 200,
+                'tags' => $tags,
+                'total_count' => $total_count,
+            ];
+        }
+
+        return ['status' => 401, 'tags' => [], 'total_count' => 0];
     }
 
     /**
