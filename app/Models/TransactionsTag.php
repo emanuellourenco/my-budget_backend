@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Transaction_Tag extends Model
+class TransactionsTag extends Model
 {
     use HasFactory;
 
