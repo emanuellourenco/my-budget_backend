@@ -14,9 +14,9 @@ class Transaction extends Model
      *
      * @var array
      */
-    protected $fillable = ['description','date','value'];
+    protected $fillable = ['description', 'date', 'value', 'type'];
 
-     /**
+    /**
      * Get the user that owns the phone.
      */
     public function user()
