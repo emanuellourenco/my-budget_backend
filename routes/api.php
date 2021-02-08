@@ -25,3 +25,7 @@ Route::apiResource('/user', UsersController::class);
 Route::apiResource('/tags', TagsController::class);
 Route::post('/tags/options', [TagsController::class, 'options']);
 Route::apiResource('/transactions', TransactionsController::class);
+Route::post('/transactions/charts', [
+    TransactionsController::class,
+    'getChartsInfo',
+]);

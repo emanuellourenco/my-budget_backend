@@ -29,7 +29,18 @@ class TransactionsController extends Controller
             $order_by = !!$request->orderBy ? $request->orderBy : 'date';
             $sort_by = !!$request->sortBy ? $request->sortBy : 'desc';
 
-            $transactions = Transaction::where('user_id', $user_by_token->id)
+            $transactions = Transaction::where('user_id', $user_by_token->id);
+            if ($request->date && !!$request->date[0] && !!$request->date[1]) {
+                $initial_date = Carbon::parse($request->date[0])->format(
+                    'Y/m/d'
+                );
+                $final_date = Carbon::parse($request->date[1])->format('Y/m/d');
+                $transactions = $transactions->whereBetween('date', [
+                    $initial_date,
+                    $final_date,
+                ]);
+            }
+            $transactions = $transactions
                 ->select('description', 'date', 'value', 'type', 'id as key')
                 ->orderBy($order_by, $sort_by)
                 ->skip($offset)
@@ -56,6 +67,9 @@ class TransactionsController extends Controller
         return ['transactions' => $transactions, 'total_count' => $total_count];
     }
 
+    /**
+     *
+     */
     public function checkFields($request, $required)
     {
         $error = false;
@@ -92,16 +106,6 @@ class TransactionsController extends Controller
     }
 
     /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function create()
-    {
-        //
-    }
-
-    /**
      * Store a newly created transaction and transactions tags and returns
      * transactions list updated based on table limit and offset.
      *
@@ -130,7 +134,7 @@ class TransactionsController extends Controller
                 if ($user_by_token) {
                     // Add new transaction
                     $new_transaction = new Transaction();
-                    $new_transaction->description = $description;
+                    $new_transaction->description = $request->description;
                     $new_transaction->value = $request->value;
                     $new_transaction->type = $request->type;
                     $new_transaction->date = $date;
@@ -209,17 +213,6 @@ class TransactionsController extends Controller
     }
 
     /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function edit($id)
-    {
-        //
-    }
-
-    /**
      * Update the specified transaction and transactions tags and returns
      * transactions list updated based on table limit and offset.
      *
@@ -255,8 +248,9 @@ class TransactionsController extends Controller
                         ->first();
 
                     if ($update_transaction) {
-                        $update_transaction->description = $description;
-                        $update_transaction->value = $value;
+                        $update_transaction->description =
+                            $request->description;
+                        $update_transaction->value = $request->value;
                         $update_transaction->date = $date;
                         $update_transaction->save();
 
@@ -368,5 +362,118 @@ class TransactionsController extends Controller
         } catch (Exception $e) {
             return $e;
         }
+    }
+
+    /**
+     * Display a transactions and transactions tags lists paginated.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function getChartsInfo(Request $request)
+    {
+        $user = new User();
+        $user_by_token = $user->getUserByToken($request->token);
+
+        if ($user_by_token) {
+            $graphType = $request->graphType;
+
+            $year = date('Y');
+            $month_start = '01';
+            $month_end = '12';
+            $rows = 12; // Month default
+
+            switch ($graphType) {
+                case 1:
+                    // "1" -> Last Year
+                    $year = date('Y', strtotime('-1 year'));
+                    break;
+                case 2:
+                    // "2" -> This Year
+                    break;
+                case 3:
+                    // "3" -> Last Month
+                    $month_start = date('m', strtotime('-1 month'));
+                    $month_end = date('m', strtotime('-1 month'));
+                    $rows = date('t');
+                    break;
+                case 4:
+                    // "4" -> This Month
+                    $month_start = date('m');
+                    $month_end = date('m');
+                    $rows = date('t');
+                    break;
+            }
+
+            $start_date = date($year . '-' . $month_start . '-01');
+            $end_date = date($year . '-' . $month_start . '-31');
+
+            $transactions = Transaction::where('user_id', $user_by_token->id)
+                ->select('date', 'value', 'type', 'id as key')
+                ->whereBetween('date', [$start_date, $end_date])
+                ->orderBy('date', 'asc')
+                ->get();
+
+            $data = [];
+
+            $initial_data = [
+                'income' => 0,
+                'expense' => 0,
+                'profit' => 0,
+            ];
+
+            $income = 0;
+            $expense = 0;
+
+            for ($i = 0; $i < $rows; $i++) {
+                array_push($data, (object) $initial_data);
+            }
+
+            foreach ($transactions as &$transaction) {
+                if ($graphType === '1' || $graphType === '2') {
+                    $row = Carbon::parse($transaction->date)->format('m');
+                    $row = ltrim($row, '0');
+                } else {
+                    $row = Carbon::parse($transaction->date)->format('d');
+                    $row = ltrim($row, '0');
+                }
+
+                switch ($transaction->type) {
+                    case 1:
+                        // 1 - Income
+                        $data[$row]->income =
+                            $data[$row]->income + $transaction->value;
+                        $data[$row]->profit =
+                            $data[$row]->profit + $transaction->value;
+                        $income = $income + $transaction->value;
+                        break;
+                    case 2:
+                        // 2 - Expense
+                        $data[$row]->expense =
+                            $data[$row]->expense + $transaction->value;
+                        $data[$row]->profit =
+                            $data[$row]->profit - $transaction->value;
+                        $expense = $expense + $transaction->value;
+                        break;
+                    case 3:
+                        // 3 - Refund
+                        $data[$row]->expense =
+                            $data[$row]->expense - $transaction->value;
+                        $data[$row]->profit =
+                            $data[$row]->profit + $transaction->value;
+                        $expense = $expense - $transaction->value;
+                        break;
+                }
+            }
+        }
+
+        return [
+            'data' => $data,
+            'income' => $income,
+            'expense' => $expense,
+            'start' => $start_date,
+            'end' => $end_date,
+            'year' => $year,
+        ];
     }
 }
