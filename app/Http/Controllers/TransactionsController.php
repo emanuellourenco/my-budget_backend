@@ -376,14 +376,14 @@ class TransactionsController extends Controller
         $user_by_token = $user->getUserByToken($request->token);
 
         if ($user_by_token) {
-            $graphType = $request->graphType;
+            $graphTime = $request->graphTime;
 
             $year = date('Y');
             $month_start = '01';
             $month_end = '12';
             $rows = 12; // Month default
 
-            switch ($graphType) {
+            switch ($graphTime) {
                 case 1:
                     // "1" -> Last Year
                     $year = date('Y', strtotime('-1 year'));
@@ -430,7 +430,7 @@ class TransactionsController extends Controller
             }
 
             foreach ($transactions as &$transaction) {
-                if ($graphType === '1' || $graphType === '2') {
+                if ($graphTime === '1' || $graphTime === '2') {
                     $row = Carbon::parse($transaction->date)->format('m');
                     $row = ltrim($row, '0');
                 } else {
@@ -474,6 +474,7 @@ class TransactionsController extends Controller
             'start' => $start_date,
             'end' => $end_date,
             'year' => $year,
+            "row" => $rows
         ];
     }
 }
